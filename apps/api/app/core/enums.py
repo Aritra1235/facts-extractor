@@ -1,0 +1,33 @@
+from enum import StrEnum
+
+
+class DocumentStatus(StrEnum):
+    UPLOADED = "UPLOADED"
+    PROCESSING = "PROCESSING"
+    COMPLETE = "COMPLETE"
+    FAILED = "FAILED"
+
+
+class JobStatus(StrEnum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    COMPLETE = "COMPLETE"
+    FAILED = "FAILED"
+
+
+class JobStage(StrEnum):
+    QUEUED = "QUEUED"
+    PARSING = "PARSING"
+    BUILDING_EVIDENCE = "BUILDING_EVIDENCE"
+    EXTRACTING_FACTS = "EXTRACTING_FACTS"
+    NORMALIZING = "NORMALIZING"
+    INDEXING = "INDEXING"
+    COMPARING = "COMPARING"
+    COMPLETE = "COMPLETE"
+    FAILED = "FAILED"
+
+
+class EventLevel(StrEnum):
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
