@@ -1,8 +1,9 @@
 "use client";
 
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 
 export function ModeToggle() {
   const [mounted, setMounted] = useState(false);
@@ -13,14 +14,19 @@ export function ModeToggle() {
   const dark = !mounted || resolvedTheme === "dark";
 
   return (
-    <div className="flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2.5">
-      <p className="text-sm font-medium text-slate-200">Dark mode</p>
-      <Switch
-        aria-label="Use dark appearance"
-        checked={dark}
-        disabled={!mounted}
-        onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
-      />
-    </div>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="relative text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      aria-label={dark ? "Use light mode" : "Use dark mode"}
+      title={dark ? "Use light mode" : "Use dark mode"}
+      onClick={() => setTheme(dark ? "light" : "dark")}
+      disabled={!mounted}
+    >
+      <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      <span className="sr-only">Toggle color theme</span>
+    </Button>
   );
 }

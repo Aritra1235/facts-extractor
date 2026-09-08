@@ -407,7 +407,7 @@ function ProjectDirectory({
         {projects.map((project) => (
           <Card
             key={project.id}
-            className="group cursor-pointer transition-colors hover:border-blue-500/60"
+            className="group cursor-pointer transition-colors hover:border-primary/70"
             onClick={() => onOpen(project.id)}
           >
             <CardHeader className="border-b p-4">
@@ -889,18 +889,13 @@ export function KnowledgeWorkspace() {
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader className="border-b border-white/10 p-5">
-          <div className="flex items-center gap-3">
-            <div className="grid size-9 place-items-center rounded-lg bg-blue-500 text-sm font-bold text-white">
-              FK
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">Fact Knowledge</p>
-            </div>
-          </div>
+        <SidebarHeader className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-5 py-0">
+          <p className="text-[15px] font-semibold tracking-tight text-sidebar-foreground">
+            Facts Store
+          </p>
         </SidebarHeader>
         <SidebarContent className="py-5">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/45">
             Projects
           </p>
           <nav className="space-y-1">
@@ -909,7 +904,7 @@ export function KnowledgeWorkspace() {
                 <span className="min-w-0 flex-1 truncate">
                   {selectedProject?.name ?? "Projects"}
                 </span>
-                <ChevronDown className="size-4 text-slate-500" />
+                <ChevronDown className="size-4 text-sidebar-foreground/45" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 side="bottom"
@@ -957,28 +952,34 @@ export function KnowledgeWorkspace() {
                   onClick={() => setView("facts")}
                 >
                   <span className="flex-1">Facts</span>
-                  <span className="text-slate-500">{projectFacts.length}</span>
+                  <span className="text-sidebar-foreground/45">
+                    {projectFacts.length}
+                  </span>
                 </SidebarMenuButton>
                 <SidebarMenuButton
                   active={view === "documents"}
                   onClick={() => setView("documents")}
                 >
                   <span className="flex-1">Documents</span>
-                  <span className="text-slate-500">{documents.length}</span>
+                  <span className="text-sidebar-foreground/45">
+                    {documents.length}
+                  </span>
                 </SidebarMenuButton>
                 <SidebarMenuButton
                   active={view === "relationships"}
                   onClick={() => setView("relationships")}
                 >
                   <span className="flex-1">Relationships</span>
-                  <span className="text-slate-500">{relationships.length}</span>
+                  <span className="text-sidebar-foreground/45">
+                    {relationships.length}
+                  </span>
                 </SidebarMenuButton>
                 <SidebarMenuButton
                   active={view === "failures"}
                   onClick={() => setView("failures")}
                 >
                   <span className="flex-1">Failure review</span>
-                  <span className="text-slate-500">
+                  <span className="text-sidebar-foreground/45">
                     {
                       documents.filter((item) => item.status === "FAILED")
                         .length
@@ -986,15 +987,15 @@ export function KnowledgeWorkspace() {
                   </span>
                 </SidebarMenuButton>
               </nav>
-              <Separator className="my-5 bg-white/10" />
+              <Separator className="my-5 bg-sidebar-border" />
               <div className="flex items-center justify-between px-3 pb-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/45">
                   Project PDFs
                 </p>
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
-                  className="text-xs font-medium text-blue-400"
+                  className="text-xs font-medium text-sidebar-primary hover:underline"
                 >
                   Add
                 </button>
@@ -1013,7 +1014,7 @@ export function KnowledgeWorkspace() {
                       <span className="block truncate">
                         {document.filename}
                       </span>
-                      <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                      <span className="mt-0.5 block text-xs font-normal text-sidebar-foreground/45">
                         {document.page_count ?? "—"} pages ·{" "}
                         {document.status.toLowerCase()}
                       </span>
@@ -1027,11 +1028,11 @@ export function KnowledgeWorkspace() {
             </>
           )}
         </SidebarContent>
-        <SidebarFooter className="border-t border-white/10">
+        <SidebarFooter className="flex justify-end border-t border-sidebar-border">
           <ModeToggle />
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="bg-[#f5f7fa] dark:bg-background">
+      <SidebarInset className="bg-muted/35">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur md:px-6">
           <SidebarTrigger />
           <div className="min-w-0 flex-1">
@@ -1145,7 +1146,7 @@ export function KnowledgeWorkspace() {
                         if (item.relation) setRelationFilter(item.relation);
                         setView(item.view);
                       }}
-                      className="rounded-lg border p-3 text-left transition-colors hover:border-blue-500/60 hover:bg-muted/40"
+                      className="rounded-lg border p-3 text-left transition-colors hover:border-primary/70 hover:bg-accent/45"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-semibold">{item.title}</p>
@@ -1265,7 +1266,7 @@ export function KnowledgeWorkspace() {
               {projectFacts.length === 0 ? (
                 <EmptyState title="No facts yet" />
               ) : (
-                <div className="grid min-h-[calc(100vh-120px)] gap-5 xl:grid-cols-[410px_minmax(0,1fr)]">
+                <div className="grid min-h-[calc(100vh-120px)] items-start gap-5 xl:grid-cols-[410px_minmax(0,1fr)]">
                   <Card className="overflow-hidden">
                     <div className="space-y-2 border-b p-3">
                       <div className="relative">
@@ -1395,7 +1396,7 @@ export function KnowledgeWorkspace() {
                         }
                       />
                     ) : (
-                      <div className="grid min-h-[calc(100vh-190px)] gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">
+                      <div className="grid min-h-[calc(100vh-190px)] items-start gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">
                         <Card className="overflow-hidden">
                           <div className="border-b p-3">
                             <div className="relative">
@@ -1463,7 +1464,7 @@ export function KnowledgeWorkspace() {
                         <CardContent className="pt-5">
                           {selectedEvidence ? (
                             <>
-                              <blockquote className="mt-5 border-l-2 border-blue-600 pl-3 text-sm leading-6">
+                              <blockquote className="mt-5 border-l-2 border-primary pl-3 text-sm leading-6">
                                 {selectedEvidence.quote}
                               </blockquote>
                               <Button
@@ -1503,7 +1504,7 @@ export function KnowledgeWorkspace() {
                             >
                               <div className="relative flex justify-center">
                                 <span
-                                  className={`mt-1.5 size-2.5 rounded-full ${event.level === "ERROR" ? "bg-red-500" : event.level === "WARNING" ? "bg-amber-500" : "bg-blue-600"}`}
+                                  className={`mt-1.5 size-2.5 rounded-full ${event.level === "ERROR" ? "bg-red-500" : event.level === "WARNING" ? "bg-amber-500" : "bg-primary"}`}
                                 />
                                 {index <
                                   (latestJob.events?.length ?? 0) - 1 && (
@@ -1705,7 +1706,7 @@ export function KnowledgeWorkspace() {
                                 </Badge>
                               </div>
                               <Separator className="my-5" />
-                              <blockquote className="border-l-2 border-blue-600 pl-3 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                              <blockquote className="border-l-2 border-primary pl-3 text-sm leading-6 text-foreground/85">
                                 {relationshipEvidence?.[index]?.quote ??
                                   fact.context.supporting_quote}
                               </blockquote>

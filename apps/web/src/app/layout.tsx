@@ -15,7 +15,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fact Knowledge — Evidence Workspace",
+  title: "Facts Store",
   description: "Inspect grounded facts and cross-document relationships.",
 };
 
