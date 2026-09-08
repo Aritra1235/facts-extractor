@@ -1,0 +1,70 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: facts
+      POSTGRES_USER: facts
+      POSTGRES_PASSWORD: facts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U facts -d facts"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: ./apps/api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://facts:facts@db:5432/facts
+      UPLOAD_DIR: /data/uploads
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      FACT_EXTRACTION_PAGE_BATCH_SIZE: ${FACT_EXTRACTION_PAGE_BATCH_SIZE:-4}
+      EMBEDDING_ITEMS_PER_MINUTE: ${EMBEDDING_ITEMS_PER_MINUTE:-90}
+      MIN_LLM_RELATIONSHIP_SIMILARITY: ${MIN_LLM_RELATIONSHIP_SIMILARITY:-0.82}
+      MAX_LLM_RELATIONSHIPS_PER_DOCUMENT: ${MAX_LLM_RELATIONSHIPS_PER_DOCUMENT:-12}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    volumes:
+      - uploads:/data/uploads
+
+  worker:
+    build: ./apps/api
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://facts:facts@db:5432/facts
+      UPLOAD_DIR: /data/uploads
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      FACT_EXTRACTION_PAGE_BATCH_SIZE: ${FACT_EXTRACTION_PAGE_BATCH_SIZE:-4}
+      EMBEDDING_ITEMS_PER_MINUTE: ${EMBEDDING_ITEMS_PER_MINUTE:-90}
+      MIN_LLM_RELATIONSHIP_SIMILARITY: ${MIN_LLM_RELATIONSHIP_SIMILARITY:-0.82}
+      MAX_LLM_RELATIONSHIPS_PER_DOCUMENT: ${MAX_LLM_RELATIONSHIPS_PER_DOCUMENT:-12}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/data/uploads
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        API_ORIGIN: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
+  uploads:

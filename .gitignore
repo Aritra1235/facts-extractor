@@ -1,0 +1,10 @@
+.env
+.venv/
+apps/api/.env
+apps/api/.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+apps/api/data/uploads/*
+!apps/api/data/uploads/.gitkeep
