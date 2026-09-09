@@ -26,7 +26,7 @@ environment rather than compiled into the application.
 
 ## Run
 
-From the repository root, copy `apps/api/.env.example` to `.env`, set `OPENROUTER_API_KEY`,
+From the repository root, copy `.env.example` to `.env`, set `OPENROUTER_API_KEY`,
 `OPENROUTER_TEXT_MODEL`, and `OPENROUTER_EMBEDDING_MODEL`, then run `docker compose up --build`.
 The text model must support strict JSON-schema responses. The embedding model must support the
 configured `EMBEDDING_DIMENSIONS`, because PostgreSQL's vector column has that fixed width.
@@ -99,6 +99,7 @@ from per-page and paginated evidence endpoints so large documents do not create 
 
 ```bash
 cd apps/api
+cp .env.example .env
 python -m venv .venv
 . .venv/bin/activate
 pip install -e '.[dev]'

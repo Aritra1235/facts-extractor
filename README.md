@@ -115,7 +115,7 @@ work.
 Create a local environment file from the checked-in template:
 
 ```bash
-cp apps/api/.env.example .env
+cp .env.example .env
 ```
 
 Set these values in `.env`:
@@ -143,7 +143,8 @@ Useful optional controls:
 | `OPENROUTER_TIMEOUT_MS` | `60000` | Request timeout |
 | `OPENROUTER_RETRY_ATTEMPTS` | `3` | Retries for transient provider failures |
 
-All available settings are documented in [`apps/api/.env.example`](apps/api/.env.example).
+All Compose settings are documented in [`.env.example`](.env.example). The API-local template is
+available at [`apps/api/.env.example`](apps/api/.env.example).
 
 ### Run the stack
 
