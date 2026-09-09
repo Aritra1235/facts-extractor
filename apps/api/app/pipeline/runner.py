@@ -240,7 +240,7 @@ async def process_job(job_id: uuid.UUID) -> None:
             await add_event(
                 job_id,
                 JobStage.EXTRACTING_FACTS,
-                f"Extracting facts with {settings.gemini_model}",
+                f"Extracting facts with {settings.openrouter_text_model} via OpenRouter",
                 0.64,
             )
 
@@ -286,7 +286,8 @@ async def process_job(job_id: uuid.UUID) -> None:
         await add_event(
             job_id,
             JobStage.INDEXING,
-            f"Embedding {len(facts)} facts with {settings.gemini_embedding_model}",
+            f"Embedding {len(facts)} facts with "
+            f"{settings.openrouter_embedding_model} via OpenRouter",
             0.85,
         )
 

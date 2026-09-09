@@ -1,12 +1,16 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 ClaimKind = Literal["OBSERVATION", "ESTIMATE", "FORECAST", "TARGET", "OPINION"]
 RelationKind = Literal["CORROBORATES", "CONTRADICTS", "RECONCILABLE", "RELATED", "NOT_COMPARABLE"]
 
 
-class ExtractedFact(BaseModel):
+class StrictSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ExtractedFact(StrictSchema):
     evidence_id: str = Field(description="The supplied evidence identifier")
     subject: str = Field(description="Entity the claim is about")
     predicate: str = Field(description="Human-readable metric or property")
@@ -23,11 +27,11 @@ class ExtractedFact(BaseModel):
     confidence: float = Field(ge=0, le=1)
 
 
-class ExtractionBatch(BaseModel):
+class ExtractionBatch(StrictSchema):
     facts: list[ExtractedFact]
 
 
-class RelationshipClassification(BaseModel):
+class RelationshipClassification(StrictSchema):
     relation: RelationKind
     confidence: float = Field(ge=0, le=1)
     explanation: str

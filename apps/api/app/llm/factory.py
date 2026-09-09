@@ -1,10 +1,10 @@
 from app.core.config import Settings
 from app.llm.base import LLMProvider
-from app.llm.gemini import GeminiProvider
+from app.llm.openrouter import OpenRouterProvider
 
 
 def create_provider(settings: Settings) -> LLMProvider:
-    providers = {"gemini": GeminiProvider}
+    providers = {"openrouter": OpenRouterProvider}
     provider_class = providers.get(settings.llm_provider.casefold())
     if provider_class is None:
         supported = ", ".join(sorted(providers))

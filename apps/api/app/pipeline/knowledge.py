@@ -144,13 +144,13 @@ async def extract_document_facts(
                 },
                 confidence=candidate.confidence,
                 status="VALIDATED",
-                extractor_version=f"gemini:{settings.gemini_model}",
+                extractor_version=f"openrouter:{settings.openrouter_text_model}",
                 schema_version=1,
             )
             session.add(fact)
             accepted.append(fact)
     if batches and batch_error_count == len(batches):
-        raise RuntimeError("Gemini fact extraction failed for every page batch")
+        raise RuntimeError("Structured fact extraction failed for every page batch")
     await session.flush()
     return accepted, rejected
 
@@ -177,7 +177,7 @@ async def embed_facts(
             items_in_window = 0
         vectors = await provider.embed([fact_summary(fact) for fact in batch])
         if len(vectors) != len(batch):
-            raise RuntimeError("Gemini returned an unexpected embedding count")
+            raise RuntimeError("Embedding provider returned an unexpected embedding count")
         for fact, vector in zip(batch, vectors, strict=True):
             fact.embedding = vector
             embedded += 1
@@ -289,7 +289,9 @@ async def build_relationships(
                     "same_subject": same_subject,
                     "same_predicate": same_predicate,
                 }
-                classifier_version = f"rules-v1+gemini:{settings.gemini_model}"
+                classifier_version = (
+                    f"rules-v1+openrouter:{settings.openrouter_text_model}"
+                )
 
             candidate_score = min(
                 1.0,

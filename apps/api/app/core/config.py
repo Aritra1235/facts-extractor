@@ -17,10 +17,13 @@ class Settings(BaseSettings):
     worker_lease_seconds: int = 300
     parser_version: str = "pymupdf-1"
     embedding_dimensions: int = Field(default=384, ge=1)
-    llm_provider: str = "gemini"
-    gemini_api_key: str | None = None
-    gemini_model: str = "gemini-3.5-flash-lite"
-    gemini_embedding_model: str = "gemini-embedding-001"
+    llm_provider: str = "openrouter"
+    openrouter_api_key: str | None = None
+    openrouter_text_model: str | None = None
+    openrouter_embedding_model: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_site_url: str | None = None
+    openrouter_app_name: str = "Facts Store"
     fact_extraction_concurrency: int = Field(default=3, ge=1, le=20)
     fact_extraction_page_batch_size: int = Field(default=4, ge=1, le=20)
     facts_per_page_limit: int = Field(default=8, ge=1, le=100)
@@ -30,8 +33,8 @@ class Settings(BaseSettings):
     min_candidate_similarity: float = Field(default=0.55, ge=0, le=1)
     min_llm_relationship_similarity: float = Field(default=0.82, ge=0, le=1)
     max_llm_relationships_per_document: int = Field(default=12, ge=0, le=1000)
-    gemini_timeout_ms: int = Field(default=60_000, ge=1_000)
-    gemini_retry_attempts: int = Field(default=3, ge=1, le=10)
+    openrouter_timeout_ms: int = Field(default=60_000, ge=1_000)
+    openrouter_retry_attempts: int = Field(default=3, ge=1, le=10)
 
 
 @lru_cache
