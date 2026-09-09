@@ -1,113 +1,291 @@
-# Fact Knowledge Layer
+# Facts Store
 
-An evidence-first backend that turns PDFs into auditable facts and cross-document
-relationships. This is intentionally a small fact compiler rather than a generic RAG chatbot:
+Facts Store converts PDF documents into an auditable, project-scoped knowledge layer. It extracts
+structured facts, attaches each fact to exact source evidence, normalizes values and context, and
+compares claims across documents.
+
+This is not a generic document chatbot. The central abstraction is a grounded fact that can be
+inspected, normalized, compared, and explained.
 
 ```text
-project -> PDFs -> page elements -> evidence -> grounded facts -> normalization
-        -> project-scoped pgvector candidates -> rules-first relationships -> explanations
+PDFs -> page elements -> evidence -> grounded facts -> normalization
+     -> vector candidates -> relationship classification -> review
 ```
 
-The backend lives in [`apps/api`](apps/api) and the reviewer workspace lives in
-[`apps/web`](apps/web). The stack uses FastAPI, Next.js, shadcn components, PostgreSQL + pgvector,
-PyMuPDF, Pydantic, and OpenRouter.
+## What the system demonstrates
 
-## Run
+- Exact evidence grounding with document, page, quote, source element, and bounding-box metadata
+- Typed fact extraction through OpenRouter structured outputs
+- Deterministic validation before extracted claims enter the knowledge layer
+- Unit, value, scope, claim-type, and Indian fiscal-period normalization
+- Project-isolated semantic retrieval with PostgreSQL and pgvector
+- Rules-first comparison with model-assisted adjudication only for ambiguous pairs
+- Asynchronous PDF processing with durable progress, events, retries, and checkpoints
+- A reviewer workspace for inspecting documents, facts, evidence, relationships, and failures
+
+The relationship layer distinguishes four important outcomes:
+
+| Relationship | Meaning |
+| --- | --- |
+| `CORROBORATES` | Two independently grounded facts express materially the same claim. |
+| `CONTRADICTS` | Comparable facts disagree without a contextual explanation. |
+| `RECONCILABLE` | Values differ because period, scope, unit, definition, or estimate vintage differs. |
+| `RELATED` | Facts are semantically connected but do not support direct agreement testing. |
+
+`NOT_COMPARABLE` is used internally to prevent weak candidates from becoming misleading
+relationships.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI[Next.js reviewer workspace] --> API[FastAPI]
+    API --> DB[(PostgreSQL and pgvector)]
+    API --> Files[(PDF upload volume)]
+    API --> Jobs[Durable processing jobs]
+    Worker[Background worker] --> Jobs
+    Worker --> Files
+    Worker --> Parser[PyMuPDF parser]
+    Worker --> OR[OpenRouter]
+    Worker --> DB
+    DB --> UI
+```
+
+The API accepts uploads and returns immediately with a job identifier. A separate worker claims
+jobs using `FOR UPDATE SKIP LOCKED`, renews a lease while processing, and persists an append-only
+event trace. The frontend polls job state without holding an upload request open.
+
+### Processing lifecycle
+
+```text
+QUEUED
+  -> PARSING
+  -> BUILDING_EVIDENCE
+  -> EXTRACTING_FACTS
+  -> NORMALIZING
+  -> INDEXING
+  -> COMPARING
+  -> COMPLETE
+```
+
+Extraction and embedding checkpoints allow failed jobs to resume without repeating completed model
+work.
+
+## Technology
+
+| Area | Implementation |
+| --- | --- |
+| Reviewer workspace | Next.js, React, TypeScript, shadcn/ui, Tailwind CSS |
+| API | FastAPI, Pydantic, SQLAlchemy asyncio |
+| Worker | Independent Python process backed by PostgreSQL jobs |
+| PDF parsing | PyMuPDF with page elements and normalized bounding boxes |
+| Structured inference | OpenRouter chat completions with strict JSON Schema |
+| Embeddings | OpenRouter embeddings API |
+| Storage and retrieval | PostgreSQL 16, pgvector, HNSW cosine index |
+| Local orchestration | Docker Compose |
+
+## Repository layout
+
+```text
+.
+├── apps
+│   ├── api
+│   │   ├── app
+│   │   │   ├── api          # HTTP routes
+│   │   │   ├── core         # configuration and lifecycle enums
+│   │   │   ├── llm          # provider contract and OpenRouter adapter
+│   │   │   └── pipeline     # parsing, grounding, normalization, and comparison
+│   │   └── tests
+│   └── web
+│       └── src              # reviewer workspace and API client
+└── docker-compose.yml
+```
+
+## Getting started
+
+### Requirements
+
+- Docker with Docker Compose
+- An OpenRouter API key
+- An OpenRouter text model that supports structured outputs
+- An OpenRouter embedding model compatible with the configured vector dimensions
+
+### Configuration
+
+Create a local environment file from the checked-in template:
 
 ```bash
 cp apps/api/.env.example .env
-# Set OPENROUTER_API_KEY, OPENROUTER_TEXT_MODEL, and
-# OPENROUTER_EMBEDDING_MODEL in .env
+```
+
+Set these values in `.env`:
+
+```dotenv
+OPENROUTER_API_KEY=your-key
+OPENROUTER_TEXT_MODEL=provider/text-model
+OPENROUTER_EMBEDDING_MODEL=provider/embedding-model
+EMBEDDING_DIMENSIONS=384
+```
+
+The embedding model must return exactly `EMBEDDING_DIMENSIONS` values. This dimension is also used
+by the PostgreSQL vector column and should be chosen before ingesting documents.
+
+Useful optional controls:
+
+| Variable | Default | Purpose |
+| --- | ---: | --- |
+| `FACT_EXTRACTION_PAGE_BATCH_SIZE` | `4` | PDF pages included in each extraction request |
+| `FACT_EXTRACTION_CONCURRENCY` | `3` | Concurrent extraction requests per document |
+| `FACTS_PER_PAGE_LIMIT` | `8` | Maximum requested facts per page |
+| `EMBEDDING_BATCH_SIZE` | `90` | Facts included in each embedding request |
+| `EMBEDDING_ITEMS_PER_MINUTE` | `90` | Client-side embedding pacing; `0` disables it |
+| `MAX_LLM_RELATIONSHIPS_PER_DOCUMENT` | `12` | Maximum model fallback comparisons per document |
+| `OPENROUTER_TIMEOUT_MS` | `60000` | Request timeout |
+| `OPENROUTER_RETRY_ATTEMPTS` | `3` | Retries for transient provider failures |
+
+All available settings are documented in [`apps/api/.env.example`](apps/api/.env.example).
+
+### Run the stack
+
+```bash
 docker compose up --build
 ```
 
-Choose an OpenRouter text model that supports structured outputs and an embedding model whose
-output can be configured to `EMBEDDING_DIMENSIONS` (384 by default).
+| Service | Address |
+| --- | --- |
+| Reviewer workspace | <http://localhost:3000> |
+| OpenAPI documentation | <http://localhost:8001/docs> |
+| API health check | <http://localhost:8001/api/v1/health> |
+| PostgreSQL | `localhost:5433` |
 
-API docs: <http://localhost:8001/docs>
-
-Reviewer workspace: <http://localhost:3000>
+To stop the stack without deleting database or upload volumes:
 
 ```bash
-curl http://localhost:8001/api/v1/projects
+docker compose down
+```
 
-curl -F 'file=@/absolute/path/document.pdf' \
+## Basic API workflow
+
+Create an isolated project:
+
+```bash
+curl -X POST http://localhost:8001/api/v1/projects \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"India Macroeconomy"}'
+```
+
+Upload a PDF using the returned project ID:
+
+```bash
+curl -F 'file=@/absolute/path/report.pdf' \
   http://localhost:8001/api/v1/projects/PROJECT_ID/documents
+```
 
+The upload response contains `document.id` and `job.id`. Poll the job independently:
+
+```bash
 curl http://localhost:8001/api/v1/jobs/JOB_ID
 ```
 
-See [`apps/api/README.md`](apps/api/README.md) for the polling contract, endpoints, and local
-development commands.
+Inspect project-wide facts and relationships:
 
-## Engineering decisions
+```bash
+curl 'http://localhost:8001/api/v1/projects/PROJECT_ID/facts?limit=500'
 
-- PostgreSQL records are the knowledge layer. Embeddings only retrieve possible comparison
-  candidates; they do not determine truth.
-- Projects are independent knowledge layers. Documents deduplicate within a project, and candidate
-  retrieval never compares a project against another project's facts.
-- Evidence stores source page, exact quote, source element IDs, and normalized bounding boxes.
-- Facts retain raw and canonical subject, predicate, value, unit, period, scope, claim kind, and
-  estimate vintage.
-- OpenRouter structured output is behind a provider protocol. Deterministic validation rejects facts
-  whose evidence ID, quote, or raw value cannot be verified locally.
-- Unit conversion and Indian fiscal-period parsing happen in deterministic code.
-- Relationship rules handle comparable values, rounding, period differences, reporting scope,
-  and estimate vintage before a capped model fallback is allowed.
-- Uploading creates a PostgreSQL job. A separate worker claims jobs with `SKIP LOCKED`, renews a
-  lease, writes progress events, and saves extraction/embedding checkpoints for safe retries.
+curl 'http://localhost:8001/api/v1/relationships?project_id=PROJECT_ID'
+```
 
-## Brownie-point support
+## Data model
 
-- **Large PDFs:** page-at-a-time parsing, paginated result APIs, multi-page model batches, and
-  rate-aware embedding batches.
-- **Many PDFs:** durable relational storage and an HNSW cosine index over fact embeddings.
-- **Evolving schema:** flexible JSONB context/differences plus versioned fact and extractor
-  schemas; unseen predicates remain data rather than requiring database migrations.
-- **Incremental documents:** SHA-256 deduplication and comparison of each new document against
-  already indexed facts without rebuilding the existing knowledge layer.
+The database is the knowledge layer, not merely a cache for model output.
 
-## Starter-dataset evaluation plan
+| Entity | Responsibility |
+| --- | --- |
+| Project | Isolates documents, facts, retrieval, and relationships into one context. |
+| Document | Stores upload identity, SHA-256 hash, status, and parser metadata. |
+| Page and element | Preserve reading order, text, dimensions, and physical location. |
+| Evidence | Stores an exact quote and its page, element IDs, bounding boxes, and table context. |
+| Fact | Retains both raw and normalized subject, predicate, value, unit, period, and scope. |
+| Relationship | Stores classification, confidence, explanation, differences, and candidate score. |
+| Job and event | Provide durable asynchronous state, progress, failures, and audit history. |
 
-The UI exposes an **Assignment case coverage** panel in every project. It reports whether the
-current pipeline output contains each of the four required demonstrations and opens the evidence
-review for a found case.
+Facts are accepted only when the evidence identifier exists and the supporting quote and raw value
+can be verified against the extracted source text. Model confidence never bypasses this check.
 
-The supplied PDFs contain strong, non-hard-coded targets for validating the system:
+## Comparison strategy
 
-- **Corroboration:** Delhivery's FY24 annual report gives consolidated revenue from operations of
-  ₹81,415.38 million, while the earnings presentation reports FY24 revenue from services of
-  ₹8,142 crore. After unit normalization and noting that FY24 traded-goods revenue is nil, the
-  figures agree within rounding. RBI and IMF also both report FY2024/25 average CPI inflation of
-  4.6 per cent.
-- **Likely contradiction:** RBI projects FY2025/26 real GDP growth at 6.5 per cent while the later
-  IMF report projects 6.6 per cent. These are comparable but competing forecasts, not conflicting
-  historical observations; the relationship explanation preserves that distinction.
-- **Contextual reconciliation:** the Economic Survey's first advance estimate puts FY2024/25 real
-  GDP growth at 6.4 per cent, while RBI and IMF later report 6.5 per cent. Estimate vintage explains
-  the apparent mismatch.
-- **Failure case:** the Delhivery Q4 FY24 presentation's cross-border chart labels its final bar
-  `Q3 FY24` even though the page and sequence indicate Q4 FY24. Native text extraction can faithfully
-  extract the wrong printed label; resolving it requires layout/sequence checks or a visual model.
+1. Normalize the fact without discarding its original representation.
+2. Generate an embedding and retrieve nearby facts only from previously processed documents in the
+   same project.
+3. Apply deterministic checks for subject, predicate, numeric tolerance, unit, period, scope, claim
+   type, and estimate vintage.
+4. Use the configured text model only when a high-similarity pair remains ambiguous.
+5. Persist the decision, explanation, differences, confidence, and classifier version.
 
-These examples are research targets and demo checks, not filename-specific extraction rules. New
-projects and unseen PDFs use the same schema, grounding validator, normalizer, retrieval, and
-classifier pipeline.
+Embeddings discover candidates; they never determine whether a claim is true or contradictory.
 
-## Current trade-offs and limitations
+## Reviewer workspace
 
-- Native PDF text is supported; OCR, table reconstruction, and chart vision are future parser
-  adapters.
-- Entity and predicate canonicalization is deliberately conservative. A production version should
-  add a reviewed alias/ontology table.
-- API/worker startup currently applies additive SQLAlchemy schema creation. Alembic migrations are
-  the next step before production deployment.
-- Provider quotas are handled by batching, pacing, retry checkpoints, and capped fallback calls,
-  at the cost of longer processing time.
+The web application provides:
+
+- Project creation and selection
+- Multi-document PDF upload and asynchronous progress tracking
+- Project-wide and document-specific fact views
+- Exact evidence quotes linked back to the source PDF and page
+- Relationship filtering for corroboration, contradiction, and reconciliation
+- Failure review with processing events and retry support
+- Light and dark themes
+
+## Assignment evaluation cases
+
+The supplied Delhivery and India macroeconomy documents support the required demonstrations without
+filename-specific rules:
+
+- **Corroboration:** equivalent financial or macroeconomic values expressed with different wording
+  or units
+- **Contradiction:** comparable forecasts or reported values that materially disagree
+- **Reconciliation:** apparent disagreement explained by period, reporting scope, unit, definition,
+  or estimate vintage
+- **Failure analysis:** chart labels, reading order, or table structure that native PDF text alone
+  cannot reliably interpret
+
+The failure case is intentional: the prototype exposes uncertain and failed behavior instead of
+hiding it behind a fluent answer.
 
 ## Verification
 
-The backend test suite covers parsing, exact grounding, unit/fiscal-period normalization, and
-rules-first relationships. A real 27-page Delhivery presentation run completed with 270 evidence
-regions, 119 grounded facts, and 119 pgvector embeddings. A second source-page run produced
-cross-document corroboration relationships, including the rounded FY24 revenue comparison.
+Run the backend checks:
+
+```bash
+cd apps/api
+uv sync --group dev
+uv run ruff check .
+uv run pytest
+```
+
+Run the frontend checks:
+
+```bash
+cd apps/web
+pnpm install
+pnpm lint
+pnpm build
+```
+
+The backend tests cover PDF parsing, exact grounding, normalization, rules-first comparison, strict
+OpenRouter payloads, embedding ordering, and vector-dimension validation.
+
+## Current limitations
+
+- Native PDF text is supported; OCR and scanned-document extraction are not yet implemented.
+- Tables and charts are represented through extracted text blocks rather than a dedicated visual
+  understanding model.
+- Entity and predicate canonicalization is conservative and would benefit from a reviewed ontology.
+- Schema bootstrap currently uses additive SQLAlchemy creation. Production deployment should use
+  versioned migrations.
+- Processing throughput and cost depend on the selected OpenRouter models and account limits.
+- Relationships are generated incrementally against existing documents, so comparison coverage can
+  depend on ingestion order until a project-wide recomputation job is added.
+
+For backend implementation details and the full polling contract, see
+[`apps/api/README.md`](apps/api/README.md).
