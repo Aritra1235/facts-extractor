@@ -10,15 +10,19 @@ project -> PDFs -> page elements -> evidence -> grounded facts -> normalization
 
 The backend lives in [`apps/api`](apps/api) and the reviewer workspace lives in
 [`apps/web`](apps/web). The stack uses FastAPI, Next.js, shadcn components, PostgreSQL + pgvector,
-PyMuPDF, Pydantic, and the Gemini API.
+PyMuPDF, Pydantic, and OpenRouter.
 
 ## Run
 
 ```bash
 cp apps/api/.env.example .env
-# Set GEMINI_API_KEY in .env
+# Set OPENROUTER_API_KEY, OPENROUTER_TEXT_MODEL, and
+# OPENROUTER_EMBEDDING_MODEL in .env
 docker compose up --build
 ```
+
+Choose an OpenRouter text model that supports structured outputs and an embedding model whose
+output can be configured to `EMBEDDING_DIMENSIONS` (384 by default).
 
 API docs: <http://localhost:8001/docs>
 
@@ -45,17 +49,17 @@ development commands.
 - Evidence stores source page, exact quote, source element IDs, and normalized bounding boxes.
 - Facts retain raw and canonical subject, predicate, value, unit, period, scope, claim kind, and
   estimate vintage.
-- Gemini structured output is behind a provider protocol. Deterministic validation rejects facts
+- OpenRouter structured output is behind a provider protocol. Deterministic validation rejects facts
   whose evidence ID, quote, or raw value cannot be verified locally.
 - Unit conversion and Indian fiscal-period parsing happen in deterministic code.
 - Relationship rules handle comparable values, rounding, period differences, reporting scope,
-  and estimate vintage before a capped Gemini fallback is allowed.
+  and estimate vintage before a capped model fallback is allowed.
 - Uploading creates a PostgreSQL job. A separate worker claims jobs with `SKIP LOCKED`, renews a
   lease, writes progress events, and saves extraction/embedding checkpoints for safe retries.
 
 ## Brownie-point support
 
-- **Large PDFs:** page-at-a-time parsing, paginated result APIs, multi-page Gemini batches, and
+- **Large PDFs:** page-at-a-time parsing, paginated result APIs, multi-page model batches, and
   rate-aware embedding batches.
 - **Many PDFs:** durable relational storage and an HNSW cosine index over fact embeddings.
 - **Evolving schema:** flexible JSONB context/differences plus versioned fact and extractor
@@ -98,8 +102,8 @@ classifier pipeline.
   add a reviewed alias/ontology table.
 - API/worker startup currently applies additive SQLAlchemy schema creation. Alembic migrations are
   the next step before production deployment.
-- Free-tier Gemini quotas are handled by batching, pacing, retry checkpoints, and capped fallback
-  calls, at the cost of longer processing time.
+- Provider quotas are handled by batching, pacing, retry checkpoints, and capped fallback calls,
+  at the cost of longer processing time.
 
 ## Verification
 
